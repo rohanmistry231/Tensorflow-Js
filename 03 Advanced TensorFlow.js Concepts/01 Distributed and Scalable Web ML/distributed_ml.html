@@ -1,0 +1,118 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Distributed and Scalable Web ML</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Distributed and Scalable Web ML</h1>
+    <div id="output"></div>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Distributed and Scalable Web ML]
+        // Learn advanced distributed ML techniques with TensorFlow.js.
+        async function runDistributedDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Parallel Inference with Web Workers]
+            const worker = new Worker('worker.js');
+            worker.postMessage({ type: 'init_model' });
+            worker.onmessage = (e) => {
+                if (e.data.type === 'model_ready') {
+                    output.innerHTML += `Web Worker Model Initialized<br>`;
+                    const input = tf.randomNormal([1, 4]).dataSync();
+                    worker.postMessage({ type: 'predict', input });
+                } else if (e.data.type === 'prediction') {
+                    output.innerHTML += `Web Worker Prediction: ${e.data.result.toFixed(4)}<br>`;
+                }
+            };
+
+            // %% [3. Node.js for Heavy Computation (Commented for Reference)]
+            /*
+            // Requires Node.js and @tensorflow/tfjs-node
+            const tf = require('@tensorflow/tfjs-node');
+            const model = tf.sequential([
+                tf.layers.dense({ units: 16, activation: 'relu', inputShape: [1000] }),
+                tf.layers.dense({ units: 1, activation: 'sigmoid' })
+            ]);
+            model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+            const X = tf.randomNormal([1000, 1000]);
+            const y = X.sum(1).greater(tf.scalar(0)).toFloat();
+            await model.fit(X, y, { epochs: 5 });
+            console.log('Node.js Model Trained');
+            */
+
+            // %% [4. Practical ML Application]
+            // Simulate client-side inference.
+            const clientModel = tf.sequential([
+                tf.layers.dense({ units: 16, activation: 'relu', inputShape: [4] }),
+                tf.layers.dense({ units: 1, activation: 'sigmoid' })
+            ]);
+            clientModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+            const X = tf.randomNormal([100, 4]);
+            const y = X.sum(1).greater(tf.scalar(0)).toFloat();
+            await clientModel.fit(X, y, { epochs: 3, batchSize: 32, verbose: 0 });
+            const prediction = clientModel.predict(tf.randomNormal([1, 4]));
+            output.innerHTML += `Client-Side Prediction: ${(await prediction.array())[0][0].toFixed(4)}<br>`;
+
+            // %% [5. Interview Scenario: Distributed ML]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Distributed and Scalable Web ML
+Q: How do you perform parallel inference in TensorFlow.js?
+A: Use Web Workers to offload model inference to separate threads.
+Key: Distributed ML balances client and server computation.
+Example: const worker = new Worker('worker.js'); worker.postMessage({ type: 'predict' });
+            `;
+        }
+        runDistributedDemo();
+    </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Advanced Architectures</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        canvas { border: 1px solid #ccc; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Advanced Architectures</h1>
+    <div id="output"></div>
+    <canvas id="ganCanvas" width="100" height="100"></canvas>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Advanced Architectures]
+        // Learn advanced TensorFlow.js architectures for web ML.
+        async function runArchitecturesDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Transformers for NLP]
+            const use = await useModule.load();
+            const sentences = ['Hello world', 'TensorFlow.js is awesome'];
+            const embeddings = await use.embed(sentences);
+            output.innerHTML += `USE Embeddings Shape: ${embeddings.shape}<br>`;
+
+            // %% [3. Simple GAN in the Browser]
+            const generator = tf.sequential([
+                tf.layers.dense({ units: 16, activation: 'relu', inputShape: [10] }),
+                tf.layers.dense({ units: 100, activation: 'sigmoid' })
+            ]);
+            const discriminator = tf.sequential([
+                tf.layers.dense({ units: 16, activation: 'relu', inputShape: [100] }),
+                tf.layers.dense({ units: 1, activation: 'sigmoid' })
+            ]);
+            generator.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+            discriminator.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+            const noise = tf.randomNormal([10, 10]);
+            const realData = tf.randomNormal([10, 100]);
+            for (let i = 0; i < 3; i++) {
+                const fakeData = generator.predict(noise);
+                await discriminator.fit(realData, tf.ones([10, 1]), { epochs: 1, verbose: 0 });
+                await discriminator.fit(fakeData, tf.zeros([10, 1]), { epochs: 1, verbose: 0 });
+                await generator.fit(noise, tf.ones([10, 1]), {
+                    loss: (yTrue, yPred) => discriminator.predict(generator.predict(noise)).mean().neg(),
+                    epochs: 1,
+                    verbose: 0
+                });
+            }
+            const generated = generator.predict(tf.randomNormal([1, 10]));
+            const canvas = document.getElementById('ganCanvas');
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(10, 10);
+            const generatedArray = await generated.array();
+            for (let i = 0; i < 10; i++) {
+                for (let j = 0; j < 10; j++) {
+                    const value = generatedArray[0][i * 10 + j] * 255;
+                    const idx = (i * 10 + j) * 4;
+                    imageData.data[idx] = value;
+                    imageData.data[idx + 1] = value;
+                    imageData.data[idx + 2] = value;
+                    imageData.data[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            output.innerHTML += `Simple GAN Output Visualized<br>`;
+
+            // %% [4. Interview Scenario: Advanced Architectures]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Advanced Architectures
+Q: How do you implement a Transformer in TensorFlow.js?
+A: Use pretrained models like Universal Sentence Encoder for NLP tasks.
+Key: Transformers excel in sequence modeling for web-based ML.
+Example: const use = await useModule.load(); use.embed(sentences);
+            `;
+        }
+        runArchitecturesDemo();
+    </script>
+</body>
+</html>

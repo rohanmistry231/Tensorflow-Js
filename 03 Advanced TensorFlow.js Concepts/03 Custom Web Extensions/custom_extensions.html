@@ -1,0 +1,121 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Custom Web Extensions</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Custom Web Extensions</h1>
+    <div id="output"></div>
+    <div id="vis" style="width: 400px; height: 300px;"></div>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Custom Web Extensions]
+        // Learn how to extend TensorFlow.js with custom functionality.
+        async function runExtensionsDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Custom WebGL Kernel]
+            tf.registerKernel({
+                kernelName: 'CustomAdd',
+                backendName: 'webgl',
+                kernelFunc: ({ inputs }) => {
+                    const { a, b } = inputs;
+                    return tf.add(a, b);
+                }
+            });
+            const a = tf.tensor2d([1, 2, 3, 4], [2, 2]);
+            const b = tf.tensor2d([5, 6, 7, 8], [2, 2]);
+            const result = tf.engine().runKernel('CustomAdd', { a, b });
+            output.innerHTML += `Custom WebGL Kernel Result:\n${result.toString()}<br>`;
+
+            // %% [3. Advanced Callbacks]
+            const customCallback = {
+                onEpochEnd: async (epoch, logs) => {
+                    const visContainer = { name: `Epoch ${epoch + 1}` };
+                    await tfvis.show.valuesDistribution(visContainer, tf.tensor(logs.loss), { height: 100 });
+                }
+            };
+            const model = tf.sequential([
+                tf.layers.dense({ units: 16, activation: 'relu', inputShape: [4] }),
+                tf.layers.dense({ units: 1, activation: 'sigmoid' })
+            ]);
+            model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+            const X = tf.randomNormal([100, 4]);
+            const y = X.sum(1).greater(tf.scalar(0)).toFloat();
+            const history = await model.fit(X, y, {
+                epochs: 5,
+                batchSize: 32,
+                callbacks: [customCallback],
+                verbose: 0
+            });
+            output.innerHTML += `Model Trained with Custom Callback<br>`;
+
+            // %% [4. Practical ML Application]
+            // Visualize training history with tfjs-vis.
+            const visContainer = document.getElementById('vis');
+            await tfvis.show.history(visContainer, history, ['loss', 'acc'], { height: 300 });
+            output.innerHTML += `Training History Visualized<br>`;
+
+            // %% [5. Interview Scenario: Custom Extensions]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Custom Web Extensions
+Q: How do you create a custom WebGL kernel in TensorFlow.js?
+A: Register a kernel with tf.registerKernel for WebGL backend.
+Key: Custom kernels optimize performance for specific operations.
+Example: tf.registerKernel({ kernelName: 'CustomAdd', backendName: 'webgl' });
+            `;
+        }
+        runExtensionsDemo();
+    </script>
+</body>
+</html>
