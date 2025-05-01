@@ -1,0 +1,134 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Web-Based Customization</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Web-Based Customization</h1>
+    <div id="output"></div>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Web-Based Customization]
+        // Learn how to customize TensorFlow.js models for web ML.
+        async function runCustomizationDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Custom Layer]
+            class CustomLayer extends tf.layers.Layer {
+                constructor(config) {
+                    super(config);
+                    this.units = config.units;
+                }
+                build(inputShape) {
+                    this.kernel = this.addWeight('kernel', [inputShape[1], this.units], 'float32', tf.initializers.glorotNormal());
+                }
+                call(inputs) {
+                    return tf.matMul(inputs, this.kernel.read());
+                }
+                static className = 'CustomLayer';
+            }
+            tf.serialization.registerClass(CustomLayer);
+            const customModel = tf.sequential([
+                new CustomLayer({ units: 16, inputShape: [4] }),
+                tf.layers.dense({ units: 1, activation: 'sigmoid' })
+            ]);
+            customModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+            output.innerHTML += `Model with Custom Layer Created<br>`;
+
+            // %% [3. Custom Loss Function]
+            function customLoss(yTrue, yPred) {
+                return tf.mean(tf.square(yTrue.sub(yPred)).add(tf.abs(yTrue.sub(yPred))));
+            }
+            const lossModel = tf.sequential([
+                tf.layers.dense({ units: 16, activation: 'relu', inputShape: [4] }),
+                tf.layers.dense({ units: 1, activation: 'sigmoid' })
+            ]);
+            lossModel.compile({ optimizer: 'adam', loss: customLoss, metrics: ['accuracy'] });
+            const X = tf.randomNormal([100, 4]);
+            const y = X.sum(1).greater(tf.scalar(0)).toFloat();
+            await lossModel.fit(X, y, { epochs: 3, batchSize: 32, verbose: 0 });
+            output.innerHTML += `Model Trained with Custom Loss<br>`;
+
+            // %% [4. Functional API]
+            const inputs = tf.input({ shape: [4] });
+            const dense1 = tf.layers.dense({ units: 16, activation: 'relu' }).apply(inputs);
+            const dense2 = tf.layers.dense({ units: 8, activation: 'relu' }).apply(dense1);
+            const outputs = tf.layers.dense({ units: 1, activation: 'sigmoid' }).apply(dense2);
+            const funcModel = tf.model({ inputs, outputs });
+            funcModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+            await funcModel.fit(X, y, { epochs: 3, batchSize: 32, verbose: 0 });
+            output.innerHTML += `Functional Model Trained<br>`;
+
+            // %% [5. Debugging WebGL]
+            await tf.setBackend('webgl');
+            output.innerHTML += `WebGL Backend: ${tf.getBackend()}<br>`;
+            const tensor = tf.randomNormal([100, 100]);
+            try {
+                tensor.dataSync(); // Force WebGL sync
+                output.innerHTML += `WebGL Tensor Debugged Successfully<br>`;
+            } catch (e) {
+                output.innerHTML += `WebGL Error: ${e.message}<br>`;
+            }
+
+            // %% [6. Interview Scenario: Customization]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Web-Based Customization
+Q: How do you create a custom layer in TensorFlow.js?
+A: Extend tf.layers.Layer, implement build and call methods.
+Key: Custom layers enable specialized ML operations.
+Example: class CustomLayer extends tf.layers.Layer { call(inputs) { ... } }
+            `;
+        }
+        runCustomizationDemo();
+    </script>
+</body>
+</html>

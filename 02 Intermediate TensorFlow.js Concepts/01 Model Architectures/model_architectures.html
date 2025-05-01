@@ -1,0 +1,134 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Model Architectures</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        canvas { border: 1px solid #ccc; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Model Architectures</h1>
+    <div id="output"></div>
+    <canvas id="mnistCanvas" width="28" height="28"></canvas>
+    <canvas id="poseCanvas" width="224" height="224"></canvas>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Model Architectures]
+        // Learn intermediate TensorFlow.js model architectures for web ML.
+        async function runArchitecturesDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Convolutional Neural Network (CNN)]
+            const cnnModel = tf.sequential([
+                tf.layers.conv2d({ filters: 16, kernelSize: 3, activation: 'relu', inputShape: [28, 28, 1] }),
+                tf.layers.maxPooling2d({ poolSize: 2 }),
+                tf.layers.flatten(),
+                tf.layers.dense({ units: 10, activation: 'softmax' })
+            ]);
+            cnnModel.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+            const X_cnn = tf.randomNormal([100, 28, 28, 1]);
+            const y_cnn = tf.randomUniform([100], 0, 10, 'int32').oneHot(10);
+            await cnnModel.fit(X_cnn, y_cnn, { epochs: 3, batchSize: 32, verbose: 0 });
+            output.innerHTML += `CNN Trained on Synthetic MNIST-like Data<br>`;
+            const sample = X_cnn.slice([0], [1]);
+            const canvas = document.getElementById('mnistCanvas');
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(28, 28);
+            const sampleArray = await sample.array();
+            for (let i = 0; i < 28; i++) {
+                for (let j = 0; j < 28; j++) {
+                    const value = (sampleArray[0][i][j][0] + 1) * 127.5;
+                    const idx = (i * 28 + j) * 4;
+                    imageData.data[idx] = value;
+                    imageData.data[idx + 1] = value;
+                    imageData.data[idx + 2] = value;
+                    imageData.data[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            output.innerHTML += `Sample MNIST-like Image Visualized<br>`;
+
+            // %% [3. Transfer Learning with MobileNet]
+            const mobilenet = await mobilenetModule.load();
+            const imgTensor = tf.randomNormal([1, 224, 224, 3]);
+            const predictions = mobilenet.predict(imgTensor);
+            output.innerHTML += `MobileNet Prediction Shape: ${predictions.shape}<br>`;
+
+            // %% [4. Pose Detection with PoseNet]
+            const posenet = await posenetModule.load();
+            const poseCanvas = document.getElementById('poseCanvas');
+            const poseCtx = poseCanvas.getContext('2d');
+            const poseImg = tf.randomNormal([224, 224, 3]);
+            const poses = await posenet.estimateSinglePose(poseImg);
+            poseCtx.fillStyle = 'red';
+            poses.keypoints.forEach(kp => {
+                if (kp.score > 0.5) {
+                    poseCtx.beginPath();
+                    poseCtx.arc(kp.position.x, kp.position.y, 5, 0, 2 * Math.PI);
+                    poseCtx.fill();
+                }
+            });
+            output.innerHTML += `PoseNet Keypoints Visualized (Synthetic)<br>`;
+
+            // %% [5. Interview Scenario: Model Architectures]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Model Architectures
+Q: How do you implement transfer learning in TensorFlow.js?
+A: Load a pretrained model like MobileNet and use it for inference or fine-tuning.
+Key: Pretrained models save computation and leverage learned features.
+Example: const mobilenet = await mobilenetModule.load(); mobilenet.predict(img);
+            `;
+        }
+        runArchitecturesDemo();
+    </script>
+</body>
+</html>

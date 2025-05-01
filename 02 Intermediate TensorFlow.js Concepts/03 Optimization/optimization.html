@@ -1,0 +1,147 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Optimization</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Optimization</h1>
+    <div id="output"></div>
+    <div id="vis" style="width: 400px; height: 300px;"></div>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Optimization]
+        // Learn how to optimize TensorFlow.js models for web ML.
+        async function runOptimizationDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Hyperparameter Tuning]
+            const X = tf.randomNormal([100, 28, 28, 1]);
+            const y = tf.randomUniform([100], 0, 10, 'int32').oneHot(10);
+            async function trainWithParams(learningRate, batchSize) {
+                const model = tf.sequential([
+                    tf.layers.flatten({ inputShape: [28, 28, 1] }),
+                    tf.layers.dense({ units: 16, activation: 'relu' }),
+                    tf.layers.dense({ units: 10, activation: 'softmax' })
+                ]);
+                model.compile({
+                    optimizer: tf.train.adam(learningRate),
+                    loss: 'categoricalCrossentropy',
+                    metrics: ['accuracy']
+                });
+                const history = await model.fit(X, y, {
+                    epochs: 3,
+                    batchSize,
+                    validationSplit: 0.2,
+                    verbose: 0
+                });
+                return history.history.val_accuracy.slice(-1)[0];
+            }
+            const acc1 = await trainWithParams(0.001, 32);
+            const acc2 = await trainWithParams(0.01, 64);
+            output.innerHTML += `Accuracy (LR=0.001, BS=32): ${acc1.toFixed(4)}<br>`;
+            output.innerHTML += `Accuracy (LR=0.01, BS=64): ${acc2.toFixed(4)}<br>`;
+
+            // %% [3. Regularization]
+            const regModel = tf.sequential([
+                tf.layers.flatten({ inputShape: [28, 28, 1] }),
+                tf.layers.dense({ units: 16, activation: 'relu', kernelRegularizer: tf.regularizers.l2({ l2: 0.01 }) }),
+                tf.layers.dropout({ rate: 0.5 }),
+                tf.layers.dense({ units: 10, activation: 'softmax' })
+            ]);
+            regModel.compile({
+                optimizer: 'adam',
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            const regHistory = await regModel.fit(X, y, {
+                epochs: 5,
+                batchSize: 32,
+                validationSplit: 0.2,
+                callbacks: tfvis.show.fitCallbacks(
+                    { name: 'Regularized Training' },
+                    ['loss', 'val_loss', 'acc', 'val_acc'],
+                    { height: 200 }
+                ),
+                verbose: 0
+            });
+            output.innerHTML += `Regularized Model Trained<br>`;
+
+            // %% [4. Model Compression]
+            const compressedModel = tf.sequential([
+                tf.layers.flatten({ inputShape: [28, 28, 1] }),
+                tf.layers.dense({ units: 8, activation: 'relu' }), // Reduced units
+                tf.layers.dense({ units: 10, activation: 'softmax' })
+            ]);
+            compressedModel.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy' });
+            await compressedModel.fit(X, y, { epochs: 3, batchSize: 32, verbose: 0 });
+            output.innerHTML += `Compressed Model Trained<br>`;
+
+            // %% [5. Practical ML Application]
+            // Visualize training history with tfjs-vis.
+            const visContainer = document.getElementById('vis');
+            await tfvis.show.history(visContainer, regHistory, ['loss', 'val_loss'], { height: 300 });
+            output.innerHTML += `Regularized Training History Visualized<br>`;
+
+            // %% [6. Interview Scenario: Optimization]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Optimization
+Q: How do you optimize a TensorFlow.js model for the web?
+A: Tune hyperparameters, apply regularization, and compress models.
+Key: Optimization balances performance and browser constraints.
+Example: model.add(tf.layers.dropout({ rate: 0.5 }));
+            `;
+        }
+        runOptimizationDemo();
+    </script>
+</body>
+</html>
