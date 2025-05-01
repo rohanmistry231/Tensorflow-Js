@@ -1,0 +1,128 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Tensors and Operations</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        canvas { border: 1px solid #ccc; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Tensors and Operations</h1>
+    <div id="output"></div>
+    <canvas id="tensorCanvas" width="200" height="200"></canvas>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Tensors and Operations]
+        // Learn core TensorFlow.js tensor operations for web ML.
+        async function runTensorsDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Tensor Creation]
+            const tensor1 = tf.tensor([1, 2, 3, 4], [2, 2]);
+            const tensor2 = tf.zeros([3, 2]);
+            const tensor3 = tf.randomNormal([2, 2]);
+            output.innerHTML += `Tensor 1 (2x2):\n${tensor1.toString()}<br>`;
+            output.innerHTML += `Zeros Tensor (3x2):\n${tensor2.toString()}<br>`;
+            output.innerHTML += `Random Normal Tensor (2x2):\n${tensor3.toString()}<br>`;
+
+            // %% [3. Attributes]
+            output.innerHTML += `Tensor 1 Shape: ${tensor1.shape}<br>`;
+            output.innerHTML += `Tensor 1 Dtype: ${tensor1.dtype}<br>`;
+            output.innerHTML += `Tensor 1 Rank: ${tensor1.rank}<br>`;
+
+            // %% [4. Operations]
+            const sliced = tensor1.slice([0, 0], [1, 2]);
+            const reshaped = tensor1.reshape([4]);
+            const matMul = tensor1.matMul(tf.tensor([[1, 0], [0, 1]], [2, 2]));
+            output.innerHTML += `Sliced Tensor:\n${sliced.toString()}<br>`;
+            output.innerHTML += `Reshaped Tensor:\n${reshaped.toString()}<br>`;
+            output.innerHTML += `Matrix Multiplication:\n${matMul.toString()}<br>`;
+
+            // %% [5. WebGL Acceleration]
+            await tf.setBackend('webgl');
+            output.innerHTML += `Backend: ${tf.getBackend()}<br>`;
+            const largeTensor = tf.randomNormal([1000, 1000]);
+            const result = largeTensor.matMul(largeTensor);
+            output.innerHTML += `Large Matrix Multiplication Done with WebGL<br>`;
+
+            // %% [6. Practical ML Application]
+            // Visualize a 2D tensor on Canvas.
+            const canvas = document.getElementById('tensorCanvas');
+            const ctx = canvas.getContext('2d');
+            const data = await tensor3.array();
+            const imageData = ctx.createImageData(2, 2);
+            for (let i = 0; i < 2; i++) {
+                for (let j = 0; j < 2; j++) {
+                    const value = (data[i][j] + 1) * 127.5; // Normalize [-1, 1] to [0, 255]
+                    const idx = (i * 2 + j) * 4;
+                    imageData.data[idx] = value; // R
+                    imageData.data[idx + 1] = value; // G
+                    imageData.data[idx + 2] = value; // B
+                    imageData.data[idx + 3] = 255; // A
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            ctx.scale(100, 100);
+            ctx.drawImage(canvas, 0, 0);
+            output.innerHTML += `Tensor visualized on Canvas<br>`;
+
+            // %% [7. Interview Scenario: Tensors and Operations]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Tensors and Operations
+Q: How do you create and manipulate tensors in TensorFlow.js?
+A: Use tf.tensor for creation, and operations like slice, reshape, matMul.
+Key: Tensors are core to ML computations, optimized with WebGL.
+Example: const t = tf.tensor([1, 2, 3, 4], [2, 2]); t.matMul(t);
+            `;
+        }
+        runTensorsDemo();
+    </script>
+</body>
+</html>

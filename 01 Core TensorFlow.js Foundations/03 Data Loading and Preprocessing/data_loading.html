@@ -1,0 +1,129 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js: Data Loading and Preprocessing</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        canvas { border: 1px solid #ccc; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+</head>
+<body>
+    <h1>TensorFlow.js: Data Loading and Preprocessing</h1>
+    <div id="output"></div>
+    <canvas id="imageCanvas" width="28" height="28"></canvas>
+    <pre id="interview"></pre>
+
+    <script>
+        // %% [1. Introduction to Data Loading and Preprocessing]
+        // Learn how to load and preprocess data in TensorFlow.js.
+        async function runDataDemo() {
+            const output = document.getElementById('output');
+            output.innerHTML = `TensorFlow.js version: ${tf.version.tfjs}<br>`;
+
+            // %% [2. Loading Browser-Based Data]
+            // Synthetic dataset (simulating MNIST-like data).
+            const X = tf.randomNormal([100, 28, 28, 1]);
+            const y = tf.randomUniform([100], 0, 10, 'int32');
+            output.innerHTML += `Synthetic Dataset Loaded (100 samples, 28x28x1)<br>`;
+
+            // %% [3. Data Pipeline with tf.data]
+            const dataset = tf.data.zip({ xs: X, ys: y })
+                .shuffle(100)
+                .batch(32)
+                .map(({ xs, ys }) => ({
+                    xs: xs.div(255.0), // Normalize
+                    ys: tf.oneHot(ys, 10)
+                }));
+            output.innerHTML += `Data Pipeline Created (shuffled, batched, normalized)<br>`;
+
+            // %% [4. Handling Images]
+            // Visualize a sample image on Canvas.
+            const sample = X.slice([0, 0, 0, 0], [1, 28, 28, 1]);
+            const sampleArray = await sample.div(255.0).array();
+            const canvas = document.getElementById('imageCanvas');
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(28, 28);
+            for (let i = 0; i < 28; i++) {
+                for (let j = 0; j < 28; j++) {
+                    const value = sampleArray[0][i][j][0] * 255;
+                    const idx = (i * 28 + j) * 4;
+                    imageData.data[idx] = value; // R
+                    imageData.data[idx + 1] = value; // G
+                    imageData.data[idx + 2] = value; // B
+                    imageData.data[idx + 3] = 255; // A
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            output.innerHTML += `Sample Image Visualized on Canvas<br>`;
+
+            // %% [5. Practical ML Application]
+            // Train a simple model on the dataset.
+            const model = tf.sequential([
+                tf.layers.flatten({ inputShape: [28, 28, 1] }),
+                tf.layers.dense({ units: 10, activation: 'softmax' })
+            ]);
+            model.compile({
+                optimizer: 'adam',
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            await model.fitDataset(dataset, { epochs: 3, verbose: 0 });
+            output.innerHTML += `Model Trained on Synthetic Dataset<br>`;
+
+            // %% [6. Interview Scenario: Data Loading]
+            const interview = document.getElementById('interview');
+            interview.innerText = `
+Interview Scenario: Data Loading and Preprocessing
+Q: How do you load and preprocess data in TensorFlow.js?
+A: Use tf.data for pipelines, tf.browser.fromPixels for images.
+Key: Asynchronous pipelines ensure efficient browser data handling.
+Example: dataset = tf.data.zip({ xs, ys }).batch(32).map(...);
+            `;
+        }
+        runDataDemo();
+    </script>
+</body>
+</html>
